@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T01 Orbit OTP — code orbits and seals into one tile</title>
+<link rel="stylesheet" href="_shared/nocturne.css">
+<style>
+  #stage{background:radial-gradient(ellipse 60% 55% at 50% 52%,#0D0F16 0%,var(--void) 70%)}
+  .card{position:absolute;left:360px;top:150px;width:720px;height:600px;z-index:2;
+    background:linear-gradient(180deg,#10121A 0%,#0C0D13 100%);border:1px solid var(--line);border-radius:24px;
+    box-shadow:0 60px 120px -40px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.02) inset}
+  .card .hud-corners{inset:-12px}
+  .head{position:absolute;left:0;right:0;top:56px;text-align:center}
+  .kicker{font:500 13px var(--f-mono);letter-spacing:.2em;color:var(--text-3);text-transform:uppercase}
+  .title{margin-top:14px;font:600 44px/1.05 var(--f-text);letter-spacing:-.02em;transition:color .35s}
+  .sub{margin-top:12px;font:400 19px var(--f-text);color:var(--text-2);transition:opacity .3s}
+  .sub b{color:var(--text);font-weight:500}
+
+  .row{position:absolute;left:0;right:0;top:270px;height:120px;display:flex;justify-content:center;gap:20px}
+  .cell{width:104px;height:120px;border-radius:18px;border:1.5px solid var(--line-2);background:rgba(255,255,255,.025);
+    display:flex;align-items:center;justify-content:center;font:600 56px var(--f-display);color:var(--text);position:relative;
+    transition:border-color .2s,box-shadow .2s,background .2s,color .2s}
+  .cell.focus{border-color:#fff;box-shadow:0 0 0 5px rgba(255,255,255,.08)}
+  .cell.focus:empty::after{content:"";width:3px;height:52px;border-radius:2px;background:#fff;animation:caret 1s steps(1) infinite}
+  @keyframes caret{50%{opacity:0}}
+  .cell.pop{animation:pop .28s var(--ease-back)}
+  @keyframes pop{from{transform:scale(.86)}to{transform:scale(1)}}
+  .cell.err{border-color:var(--flare);color:var(--flare);box-shadow:0 0 0 5px rgba(255,122,69,.12)}
+  .row.shake{animation:shake .4s}
+  @keyframes shake{20%{transform:translateX(-14px)}40%{transform:translateX(12px)}60%{transform:translateX(-8px)}80%{transform:translateX(5px)}}
+  #code{position:absolute;left:150px;top:270px;width:420px;height:120px;opacity:0;z-index:3;cursor:text;caret-color:transparent}
+
+  .foot{position:absolute;left:0;right:0;top:470px;text-align:center;font:500 14px var(--f-mono);letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;transition:opacity .3s,color .3s}
+  .foot.err{color:var(--flare)}
+
+  /* orbit layer */
+  .orbit{position:absolute;left:360px;top:330px;width:0;height:0;z-index:4;pointer-events:none}
+  .orbit .ocell{position:absolute;left:-52px;top:-60px;width:104px;height:120px;border-radius:18px;border:1.5px solid rgba(255,255,255,.55);
+    background:#12141C;display:flex;align-items:center;justify-content:center;font:600 56px var(--f-display);color:#fff;will-change:transform}
+  .orbit .ocell.lit{border-color:var(--ion);color:var(--ion);background:rgba(63,224,208,.10);box-shadow:0 0 28px rgba(63,224,208,.45),0 0 0 1px rgba(63,224,208,.4) inset}
+  .ring{position:absolute;left:-210px;top:-210px;width:420px;height:420px;opacity:0;will-change:transform}
+  .ring circle{fill:none}
+  .dot{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--ion);box-shadow:0 0 22px 6px rgba(63,224,208,.6);opacity:0;transform:scale(0)}
+
+  /* success */
+  .ok{position:absolute;left:0;right:0;top:250px;height:180px;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .tile{position:relative;width:140px;height:140px;border-radius:32px;background:rgba(63,224,208,.12);border:2px solid var(--ion);
+    box-shadow:0 0 60px rgba(63,224,208,.45),0 0 0 1px rgba(63,224,208,.3) inset;display:flex;align-items:center;justify-content:center;transform:scale(0);opacity:0}
+  .tile svg path{stroke:var(--ion);stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100}
+  .wave{position:absolute;left:50%;top:50%;width:140px;height:140px;margin:-70px 0 0 -70px;border-radius:36px;border:2px solid var(--ion);opacity:0}
+  .ok.on .wave{animation:wave 1.1s var(--ease-out) forwards}.ok.on .wave.w2{animation-delay:.18s}
+  @keyframes wave{from{transform:scale(1);opacity:.8}to{transform:scale(2.3);opacity:0}}
+  .spark{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:var(--ion);opacity:0}
+  .enter{position:absolute;left:210px;width:300px;top:470px;opacity:0;transform:translateY(10px);transition:opacity .35s,transform .35s var(--ease-out),box-shadow .2s;background:var(--ion);color:#05221F;box-shadow:0 12px 40px -12px rgba(63,224,208,.9)}
+  .enter.show{opacity:1;transform:none}
+  .enter.li-hover,.enter:hover{box-shadow:0 0 0 6px rgba(63,224,208,.2),0 12px 40px -8px rgba(63,224,208,1)}
+  .title.ok-t{color:var(--ion)}
+
+  /* toast */
+  .toast{position:absolute;left:780px;top:44px;width:420px;height:92px;z-index:6;border-radius:18px;background:rgba(28,30,40,.92);border:1px solid var(--line-2);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.8);display:flex;align-items:center;gap:16px;padding:0 16px 0 18px;transition:transform .45s var(--ease-out),opacity .35s}
+  .toast.gone{transform:translateY(-130px);opacity:0}
+  .toast .ic{width:48px;height:48px;border-radius:12px;background:#22252F;display:flex;align-items:center;justify-content:center}
+  .toast .tx{flex:1;min-width:0}
+  .toast .t1{font:500 12px var(--f-mono);letter-spacing:.14em;color:var(--text-3);text-transform:uppercase}
+  .toast .t2{margin-top:6px;font:500 18px var(--f-text);color:var(--text);white-space:nowrap}
+  .toast .t2 b{font-family:var(--f-display);font-size:21px;letter-spacing:.08em}
+  .fill{height:40px;padding:0 18px;border-radius:10px;background:#fff;color:#0B0C12;font:600 15px var(--f-text)}
+  .fill.li-hover,.fill:hover{background:#E6E7EE}
+  .flood{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;
+    background:radial-gradient(ellipse 75% 85% at 50% 50%,rgba(63,224,208,.55),rgba(63,224,208,.18) 50%,rgba(63,224,208,.04) 85%)}
+  .card{transition:border-color .5s,box-shadow .5s}
+  .card.won{border-color:rgba(63,224,208,.45);box-shadow:0 60px 120px -40px rgba(0,0,0,.8),0 0 90px -10px rgba(63,224,208,.35),0 0 0 1px rgba(63,224,208,.15) inset}
+</style>
+</head>
+<body>
+<div id="stage" class="grid" data-title="T01 Orbit OTP" data-url="veraetogrex-portfolio.github.io/verify">
+  <div class="toast" id="toast">
+    <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A4A7B6" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg></div>
+    <div class="tx"><div class="t1">Mail · now</div><div class="t2"><b>4719</b> is your sign-in code</div></div>
+    <button class="fill" id="fill">Fill</button>
+  </div>
+
+  <div class="flood" id="flood"></div>
+  <div class="card" id="card">
+    <div class="hud-corners"></div>
+    <div class="head">
+      <div class="kicker">Veraetogrex · Sign in</div>
+      <div class="title" id="title">Verify it's you</div>
+      <div class="sub" id="sub">Enter the code we sent to <b>mira@orbit.studio</b></div>
+    </div>
+    <div class="row" id="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+    <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="4" aria-label="Verification code">
+    <div class="foot" id="foot">Resend in 0:24</div>
+
+    <div class="orbit" id="orbit">
+      <svg class="ring" id="ring" viewBox="-210 -210 420 420">
+        <circle r="130" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+        <g id="ticks"></g>
+      </svg>
+      <div class="dot" id="dot"></div>
+    </div>
+
+    <div class="ok" id="ok">
+      <div class="wave"></div><div class="wave w2"></div>
+      <div class="tile" id="tile"><svg width="76" height="76" viewBox="0 0 76 76"><path d="M18 40 L32 53 L59 24" pathLength="100"/></svg></div>
+    </div>
+    <button class="btn enter" id="enter">Enter workspace →</button>
+  </div>
+
+  <div class="status-line"><span>Veraetogrex · T01</span><span>2-step verification</span></div>
+</div>
+
+<script src="_shared/stage.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const cells = [...document.querySelectorAll('.row .cell')];
+const input = $('#code'), row = $('#row'), orbit = $('#orbit'), ring = $('#ring'), dot = $('#dot');
+const title = $('#title'), sub = $('#sub'), foot = $('#foot'), toast = $('#toast'), ok = $('#ok'), tile = $('#tile'), enter = $('#enter');
+const CODE = '4719';
+let busy = false, flow = null;
+
+// ring ticks
+(() => {
+  const g = $('#ticks'); let h = '';
+  for (let i = 0; i < 72; i++) {
+    const a = i / 72 * Math.PI * 2, major = i % 18 === 0, r1 = major ? 146 : 150, r2 = major ? 168 : 158;
+    h += `<line x1="${Math.cos(a)*r1}" y1="${Math.sin(a)*r1}" x2="${Math.cos(a)*r2}" y2="${Math.sin(a)*r2}" stroke="${major ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.22)'}" stroke-width="${major ? 2 : 1.2}"/>`;
+  }
+  g.innerHTML = h;
+})();
+
+function render(v, focus = true) {
+  cells.forEach((c, i) => {
+    const had = c.textContent;
+    c.textContent = v[i] || '';
+    c.classList.toggle('focus', focus && i === Math.min(v.length, 3) && v.length < 4);
+    if (!had && v[i]) { c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
+  });
+}
+
+function reset() {
+  busy = false; flow = null;
+  input.value = ''; render('', true);
+  cells.forEach(c => { c.classList.remove('err', 'pop'); c.style.visibility = ''; });
+  row.classList.remove('shake'); row.style.opacity = '';
+  orbit.querySelectorAll('.ocell').forEach(e => e.remove());
+  ring.style.opacity = 0; ring.style.transform = '';
+  dot.style.opacity = 0; dot.style.transform = 'scale(0)';
+  title.textContent = "Verify it's you"; title.classList.remove('ok-t');
+  sub.style.opacity = 1; sub.innerHTML = 'Enter the code we sent to <b>mira@orbit.studio</b>';
+  foot.textContent = 'Resend in 0:24'; foot.classList.remove('err'); foot.style.opacity = 1;
+  toast.classList.remove('gone');
+  ok.classList.remove('on'); tile.style.transform = 'scale(0)'; tile.style.opacity = 0;
+  tile.querySelector('path').style.strokeDashoffset = 100;
+  ok.querySelectorAll('.spark').forEach(e => e.remove());
+  enter.classList.remove('show');
+  $('#flood').style.opacity = 0; $('#card').classList.remove('won');
+}
+
+// ---------- interactive input ----------
+input.addEventListener('input', () => {
+  if (busy) { input.value = input.value.slice(0, 4); return; }
+  input.value = input.value.replace(/\D/g, '').slice(0, 4);
+  cells.forEach(c => c.classList.remove('err')); foot.classList.remove('err'); foot.textContent = 'Resend in 0:24';
+  render(input.value);
+  if (input.value.length === 4) flow = verify(Stage.ctx(), input.value);
+});
+input.addEventListener('focus', () => render(input.value));
+input.addEventListener('blur', () => cells.forEach(c => c.classList.remove('focus')));
+$('#fill').addEventListener('click', () => { if (!busy) flow = autofill(Stage.ctx()); });
+enter.addEventListener('click', () => { if (!Stage.playing) Stage.reset(); });
+
+async function autofill(s) {
+  busy = true; input.value = '';
+  await s.wait(120);
+  toast.classList.add('gone');
+  for (let i = 1; i <= 4; i++) { render(CODE.slice(0, i)); input.value = CODE.slice(0, i); await s.wait(i < 4 ? 270 : 220); }
+  busy = false;
+  await verify(s, CODE);
+}
+
+// ---------- the orbit ----------
+async function verify(s, value) {
+  busy = true;
+  input.blur(); cells.forEach(c => c.classList.remove('focus'));
+  toast.classList.add('gone');
+  const O = { x: 360, y: 330 };                       // orbit centre in card coords
+  const start = cells.map(c => ({ x: c.offsetLeft + 52 - O.x, y: c.offsetTop + row.offsetTop + 60 - O.y }));
+  const oc = cells.map((c, i) => { const e = document.createElement('div'); e.className = 'ocell'; e.textContent = value[i]; orbit.appendChild(e); return e; });
+  const place = (e, x, y, rot, sc) => e.style.transform = `translate(${x}px,${y}px) rotate(${rot}deg) scale(${sc})`;
+  oc.forEach((e, i) => place(e, start[i].x, start[i].y, 0, 1));
+  cells.forEach(c => c.style.visibility = 'hidden');
+  const R = 130, base = [-90, 0, 90, 180];
+  const good = value === CODE;
+
+  if (!good) {
+    // orbit does not close: cells drift toward the ring and snap back
+    await s.tween(320, t => oc.forEach((e, i) => { const a = base[i] * Math.PI / 180;
+      place(e, s.lerp(start[i].x, Math.cos(a) * R, t * .45), s.lerp(start[i].y, Math.sin(a) * R, t * .45), base[i] * .25 * t, 1 - .12 * t); }), s.ease.out);
+    await s.tween(260, t => oc.forEach((e, i) => { const a = base[i] * Math.PI / 180;
+      place(e, s.lerp(Math.cos(a) * R * .45 + start[i].x * .55, start[i].x, t), s.lerp(Math.sin(a) * R * .45 + start[i].y * .55, start[i].y, t), base[i] * .25 * (1 - t), .88 + .12 * t); }), s.ease.outBack);
+    oc.forEach(e => e.remove()); cells.forEach(c => { c.style.visibility = ''; c.classList.add('err'); });
+    row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+    foot.textContent = 'Wrong code — try again'; foot.classList.add('err');
+    await s.wait(650);
+    input.value = ''; cells.forEach(c => c.classList.remove('err')); render('', false);
+    busy = false; input.focus();
+    return false;
+  }
+
+  // A — leave the row, take positions on the orbit
+  sub.style.opacity = 0; foot.style.opacity = 0;
+  ring.style.transform = 'scale(.85) rotate(0deg)';
+  await s.tween(560, t => {
+    ring.style.opacity = t; ring.style.transform = `scale(${.85 + .15 * t})`;
+    oc.forEach((e, i) => { const a = base[i] * Math.PI / 180;
+      place(e, s.lerp(start[i].x, Math.cos(a) * R, t), s.lerp(start[i].y, Math.sin(a) * R, t), -14 * Math.sin(Math.PI * t), 1 - .22 * t); });
+  }, s.ease.inOut);
+  // B — one and a quarter turns, cells tilt like spokes, ticks counter-rotate
+  await s.tween(1000, t => {
+    const off = 450 * t;
+    ring.style.transform = `rotate(${-120 * t}deg)`;
+    oc.forEach((e, i) => { const deg = base[i] + off, a = deg * Math.PI / 180;
+      place(e, Math.cos(a) * R, Math.sin(a) * R, off * .8 + 34 * Math.sin(Math.PI * t), .78); });
+  }, s.ease.inOut);
+  // C — stop in a cross, verdict colour arrives
+  oc.forEach((e, i) => s.later(() => e.classList.add('lit'), i * 55));
+  ring.querySelector('circle').style.stroke = 'rgba(63,224,208,.55)';
+  await s.wait(480);
+  // D — collapse into a point
+  dot.style.transition = 'none';
+  await s.tween(460, t => {
+    ring.style.opacity = 1 - t; ring.style.transform = `rotate(-120deg) scale(${1 - .6 * t})`;
+    oc.forEach((e, i) => { const deg = base[i] + 450, a = deg * Math.PI / 180, r = R * (1 - t);
+      place(e, Math.cos(a) * r, Math.sin(a) * r, 360 + 90 * t, .78 * (1 - .9 * t)); e.style.opacity = 1 - t * t; });
+    dot.style.opacity = t; dot.style.transform = `scale(${t})`;
+  }, s.ease.in);
+  oc.forEach(e => e.remove());
+  ring.querySelector('circle').style.stroke = '';
+  // E — the point opens into the verified tile
+  ok.style.top = '250px';
+  await s.tween(200, t => { dot.style.transform = `scale(${1 + 1.4 * t})`; }, s.ease.out);
+  dot.style.opacity = 0;
+  ok.classList.add('on');
+  sparks(s);
+  $('#card').classList.add('won');
+  s.tween(1100, t => { $('#flood').style.opacity = t < .14 ? t / .14 : 1 - .72 * (t - .14) / .86; }, s.ease.linear).catch(() => {});
+  title.textContent = 'Verified'; title.classList.add('ok-t');
+  const path = tile.querySelector('path');
+  await s.tween(420, t => { tile.style.opacity = Math.min(1, t * 2); tile.style.transform = `scale(${t})`; }, s.ease.outBack);
+  sub.innerHTML = 'Signed in as <b>mira@orbit.studio</b>'; sub.style.opacity = 1;
+  enter.classList.add('show');
+  await s.tween(380, t => path.style.strokeDashoffset = 100 - 100 * t, s.ease.out);
+  busy = false;
+  return true;
+}
+
+function sparks(s) {
+  for (let i = 0; i < 14; i++) {
+    const e = document.createElement('div'); e.className = 'spark'; ok.appendChild(e);
+    const a = Math.random() * Math.PI * 2, d = 110 + Math.random() * 90, sz = .6 + Math.random();
+    s.tween(700 + Math.random() * 300, t => {
+      e.style.opacity = t < .15 ? t / .15 : 1 - (t - .15) / .85;
+      e.style.transform = `translate(${Math.cos(a) * d * t}px,${Math.sin(a) * d * t}px) scale(${sz})`;
+    }, s.ease.out).catch(() => {});
+  }
+}
+
+Stage.init({
+  reset,
+  cursorStart: [1010, 220],
+  async demo(s) {
+    await s.wait(150);
+    await s.click($('#fill'), { ms: 380 });           // ~0.55 s
+    s.move([980, 560], 1100, { arc: .2 }).catch(() => {});
+    await s.wait(10);
+    await flow;                                         // fill + orbit + verdict ≈ 4.7 s
+    await s.move(enter, 420, { dy: 4 });
+    await s.wait(700);
+  },
+});
+</script>
+</body>
+</html>
