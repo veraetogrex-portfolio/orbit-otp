@@ -2,7 +2,7 @@
 
 **4 boxes. One orbit. Zero dependencies.**
 
-![Orbit OTP preview](preview.jpg)
+![Orbit OTP preview](preview.gif)
 
 **Live demo:** [veraetogrex-portfolio.github.io/orbit-otp](https://veraetogrex-portfolio.github.io/orbit-otp/) · **Mockup:** [full-screen version](https://veraetogrex-portfolio.github.io/orbit-otp/mockup/orbit-otp.html)
 
